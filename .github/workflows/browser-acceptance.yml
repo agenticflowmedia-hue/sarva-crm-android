@@ -1,0 +1,64 @@
+name: SARVA browser acceptance tests
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/browser-acceptance.yml"
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser testing client
+        run: npm install --no-save playwright-core@1.56.1
+      - name: Run live public-page acceptance tests
+        run: |
+          cat > /tmp/test-sarva.mjs <<'JS'
+          import { chromium } from 'playwright-core';
+          import assert from 'node:assert/strict';
+          const binary='/usr/bin/google-chrome';
+          const browser=await chromium.launch({executablePath:binary,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+          const root='https://om-sarva-bhuta-crm-secure.vercel.app';
+          try {
+            for (const viewport of [{width:1440,height:900},{width:390,height:844}]) {
+              const page=await browser.newPage({viewport});
+              const errors=[];
+              page.on('pageerror',e=>errors.push(e.message));
+              const response=await page.goto(root+'/operations.html',{waitUntil:'domcontentloaded',timeout:45000});
+              assert.equal(response.status(),200);
+              await page.locator('#adminTab').waitFor({state:'visible',timeout:20000});
+              assert.equal(await page.locator('#staffTab').isVisible(),true);
+              assert.equal(await page.locator('#adminTab').isVisible(),true);
+              assert.equal(await page.locator('#dashboardScreen').isVisible(),false);
+              assert.equal(await page.locator('#formTitle').textContent(),'Administrator Sign In');
+              await page.locator('#staffTab').click();
+              assert.equal(await page.locator('#formTitle').textContent(),'Staff Sign In');
+              await page.locator('#requestToggle').click();
+              assert.equal(await page.locator('#requestForm').isVisible(),true);
+              await page.locator('#adminTab').click();
+              assert.equal(await page.locator('#requestForm').isVisible(),false);
+              await page.locator('#email').fill('qa-invalid@example.invalid');
+              await page.locator('#password').fill('no-password-submitted');
+              // No login submitted: this test must never use or guess real staff credentials.
+              await page.screenshot({path:'/tmp/sarva-public-'+viewport.width+'.png',fullPage:true});
+              assert.equal(errors.length,0,'Browser JS exceptions: '+errors.join(', '));
+              console.log('PASS: '+viewport.width+'px login switch, request form, no unauthorized dashboard, zero page errors');
+              await page.close();
+            }
+            const page=await browser.newPage();
+            for (const route of ['/enroll.html','/verify.html','/review.html','/legacy-kyc.html']) {
+              const r=await page.goto(root+route,{waitUntil:'domcontentloaded',timeout:45000});
+              assert.equal(r.status(),200);
+              console.log('PASS: '+route+' responds 200');
+            }
+            await page.close();
+          } finally {await browser.close()}
+          JS
+          cp /tmp/test-sarva.mjs ./test-sarva.mjs
+          node test-sarva.mjs
