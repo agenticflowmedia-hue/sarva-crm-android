@@ -1,0 +1,39 @@
+name: SARVA zero-SMS MVP production smoke test
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/zero-sms-mvp-smoke.yml]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify zero-SMS MVP public routes and policies
+        run: |
+          set -euo pipefail
+          ROOT="https://om-sarva-bhuta-crm-secure.vercel.app"
+          for path in / /operations.html /enroll.html /verify.html /review.html /legacy-kyc.html /otp.html /app.js; do
+            code="$(curl -L -s -o /tmp/sarva-page -w '%{http_code}' --retry 3 --max-time 30 "$ROOT$path")"
+            test "$code" = 200 || { echo "::error::Route $path HTTP $code"; exit 1; }
+            test "$(wc -c < /tmp/sarva-page)" -gt 100 || { echo "::error::Route $path too small"; exit 1; }
+            echo "PASS $path HTTP 200"
+          done
+          curl -fsSL "$ROOT/" | grep -Fq 'EG59doEGYjRvYT75gprpTEAMIt1XtbYMND0pM0NvpfU'
+          curl -fsSL "$ROOT/operations.html" -o /tmp/mvp.html
+          curl -fsSL "$ROOT/otp.html" -o /tmp/no-otp.html
+          grep -Fq 'Phone verification disabled' /tmp/mvp.html
+          grep -Fq '[hidden]{display:none!important}' /tmp/mvp.html
+          grep -Fq 'Phone OTP is disabled' /tmp/no-otp.html
+          if grep -q 'TWILIO_AUTH_TOKEN' /tmp/mvp.html; then
+            echo "::error::Server credential name appears unexpectedly in public MVP"
+            exit 1
+          fi
+          echo "PASS: mobile unverified disclosure, no-SMS page, role UI visibility, Google verification"
+      - name: Ensure anonymous OTP requests blocked
+        run: |
+          set -euo pipefail
+          status="$(curl -s -o /tmp/response -w '%{http_code}' -X POST 'https://ezzvalwtvcadizcwlptm.supabase.co/functions/v1/sarva-customer-otp' -H 'Content-Type: application/json' --data '{"action":"send","enrollment_id":"00000000-0000-4000-8000-000000000000"}')"
+          [[ "$status" == 401 || "$status" == 403 ]] || { echo "::error::Anonymous OTP request gave HTTP $status"; exit 1; }
+          echo "PASS: anonymous OTP access blocked ($status)"
