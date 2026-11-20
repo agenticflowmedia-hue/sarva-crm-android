@@ -1,0 +1,51 @@
+name: Validate live premium CRM dashboard
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/validate-live-dashboard.yml"
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify public dashboard routes and assets
+        run: |
+          set -euo pipefail
+          ROOT="https://om-sarva-bhuta-crm-secure.vercel.app"
+          for route in /operations.html /dashboard.css /dashboard.js /enroll.html /verify.html /review.html /legacy-kyc.html /logo.webp; do
+            status="$(curl -L -sS --retry 3 --max-time 30 -o /tmp/route -w '%{http_code}' "$ROOT$route")"
+            [[ "$status" == "200" ]] || { echo "FAIL $route HTTP $status"; exit 1; }
+            [[ $(wc -c </tmp/route) -gt 100 ]] || { echo "FAIL $route too small"; exit 1; }
+            echo "PASS $route"
+          done
+          curl -fsSL "$ROOT/operations.html" -o /tmp/dashboard.html
+          curl -fsSL "$ROOT/dashboard.js" -o /tmp/dashboard.js
+          curl -fsSL "$ROOT/dashboard.css" -o /tmp/dashboard.css
+          grep -q 'Customer Directory' /tmp/dashboard.html
+          grep -q 'Admin Login' /tmp/dashboard.html
+          grep -q 'Staff Login' /tmp/dashboard.html
+          grep -q 'Application Pipeline' /tmp/dashboard.html
+          grep -q 'dashboard.js' /tmp/dashboard.html
+          grep -q 'sarva_admin_set_staff_active' /tmp/dashboard.js
+          grep -q 'UNVERIFIED' /tmp/dashboard.js
+          grep -q 'crm_enrollments' /tmp/dashboard.js
+          node --check /tmp/dashboard.js
+          curl -fsSL "$ROOT/" | grep -Fq 'EG59doEGYjRvYT75gprpTEAMIt1XtbYMND0pM0NvpfU'
+          echo 'PASS Live dashboard routes, feature labels, scripts, login and Google ownership'
+      - name: Capture desktop and mobile dashboard screenshots
+        run: |
+          set -euo pipefail
+          CHROME="$(command -v google-chrome || command -v chromium || true)"
+          if [[ -z "$CHROME" ]]; then echo "Browser unavailable; HTML smoke passed"; exit 0; fi
+          mkdir -p screenshots
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --hide-scrollbars --virtual-time-budget=8500 --window-size=1450,950 --screenshot="$PWD/screenshots/desktop.png" 'https://om-sarva-bhuta-crm-secure.vercel.app/operations.html' >/dev/null 2>&1 || true
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --hide-scrollbars --virtual-time-budget=8500 --window-size=420,900 --screenshot="$PWD/screenshots/mobile.png" 'https://om-sarva-bhuta-crm-secure.vercel.app/operations.html' >/dev/null 2>&1 || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: SARVA-Premium-Dashboard-Visual-QA
+          path: screenshots/*.png
+          if-no-files-found: ignore
