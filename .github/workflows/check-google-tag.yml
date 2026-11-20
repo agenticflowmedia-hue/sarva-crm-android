@@ -1,0 +1,24 @@
+name: Verify SARVA Google tag on production
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/check-google-tag.yml]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check production homepage and Google tag
+        run: |
+          curl --fail --location --silent --show-error --max-time 30 'https://om-sarva-bhuta-crm-secure.vercel.app/' -o /tmp/production.html
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('/tmp/production.html').read_text(encoding='utf-8')
+          token='<meta name="google-site-verification" content="EG59doEGYjRvYT75gprpTEAMIt1XtbYMND0pM0NvpfU" />'
+          assert token in s and '</head>' in s
+          assert s.find(token) < s.find('</head>')
+          assert '/app.js' in s
+          print('PASS: Production homepage contains Google verification tag in head and CRM app script')
+          PY
