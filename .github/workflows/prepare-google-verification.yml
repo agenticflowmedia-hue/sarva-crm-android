@@ -1,0 +1,35 @@
+name: Prepare Google Search Console verification
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/prepare-google-verification.yml]
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download active production homepage
+        run: |
+          curl --fail --location --retry 3 --max-time 30 --silent --show-error 'https://om-sarva-bhuta-crm-secure.vercel.app/' -o index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          if len(s)<800 or '<head' not in s.lower() or '</head>' not in s.lower() or '<body' not in s.lower():
+              raise SystemExit('Original CRM homepage was not obtained; will not replace it')
+          if 'SARVA' not in s.upper() and 'supabase' not in s.lower():
+              raise SystemExit('Unexpected homepage contents; will not replace it')
+          tag='<meta name="google-site-verification" content="EG59doEGYjRvYT75gprpTEAMIt1XtbYMND0pM0NvpfU" />'
+          if tag not in s:
+              s=s.replace('</head>', tag + '\\n</head>', 1)
+          assert s.count(tag)==1
+          Path('index.html').write_text(s,encoding='utf-8')
+          print(f'Patched original CRM homepage: {len(s)} chars; verification tag included')
+          PY
+      - name: Upload page artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sarva-verification-index
+          path: index.html
+          if-no-files-found: error
