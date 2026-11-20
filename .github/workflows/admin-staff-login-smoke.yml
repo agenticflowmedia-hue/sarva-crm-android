@@ -1,0 +1,26 @@
+name: SARVA admin staff login production test
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/admin-staff-login-smoke.yml]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify production roles and CRM routes
+        run: |
+          set -euo pipefail
+          ROOT=https://om-sarva-bhuta-crm-secure.vercel.app
+          curl --fail --location --retry 3 --max-time 30 --silent --show-error "$ROOT/operations.html" > /tmp/adminstaff.html
+          grep -Fq 'Admin Login' /tmp/adminstaff.html
+          grep -Fq 'Staff Login' /tmp/adminstaff.html
+          grep -Fq 'sarva_admin_set_staff_active' /tmp/adminstaff.html
+          grep -Fq 'sarva_admin_staff_directory' /tmp/adminstaff.html
+          grep -Fq 'crm_staff_profiles' /tmp/adminstaff.html
+          grep -Fq 'UNVERIFIED' /tmp/adminstaff.html
+          grep -Fq 'auth.signInWithPassword' /tmp/adminstaff.html
+          curl -fsSL "$ROOT/" | grep -Fq 'EG59doEGYjRvYT75gprpTEAMIt1XtbYMND0pM0NvpfU'
+          echo 'PASS: Admin Staff Login, role-protected admin tools and ownership verification served'
