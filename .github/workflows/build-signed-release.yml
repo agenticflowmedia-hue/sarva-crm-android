@@ -1,0 +1,111 @@
+name: SARVA CRM signed Android release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  signed-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate all release signing credentials are available
+        env:
+          KEYSTORE_BASE64: ${{ secrets.SARVA_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.SARVA_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.SARVA_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.SARVA_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$KEYSTORE_BASE64" || -z "$KEYSTORE_PASSWORD" || -z "$KEY_ALIAS" || -z "$KEY_PASSWORD" ]]; then
+            echo "::error::Signing keys are not configured. Set all four SARVA_* repository secrets before releasing."
+            exit 1
+          fi
+
+      - name: Verify and extract trusted SARVA Android source
+        run: |
+          set -euo pipefail
+          echo "772b2371c6cfc4156035a5c70fe7a59bd37ba3cf2ba15a2426813f1363d5034a  SARVA_CRM_Cloud_APK_Build_Project.zip" | sha256sum -c -
+          unzip -oq SARVA_CRM_Cloud_APK_Build_Project.zip
+
+      - name: Lock WebView navigation to SARVA production hostname
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/java/in/omsarvabhuta/crm/MainActivity.java')
+          s=p.read_text()
+          old='host.equals("vercel.app") || host.endsWith(".vercel.app") ||\n                            host.equals("supabase.co") || host.endsWith(".supabase.co")'
+          new='host.equals("om-sarva-bhuta-crm-secure.vercel.app")'
+          if old not in s:
+              raise SystemExit('The source has changed unexpectedly; review navigation policy before signing')
+          p.write_text(s.replace(old,new))
+          PY
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configure Android SDK 35
+        run: |
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Safely configure Gradle release signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.SARVA_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.SARVA_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.SARVA_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.SARVA_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          printf "%s" "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/sarva-release.jks"
+          chmod 600 "$RUNNER_TEMP/sarva-release.jks"
+          export SARVA_KEYSTORE_PATH="$RUNNER_TEMP/sarva-release.jks"
+          export SARVA_KEYSTORE_PASSWORD="$KEYSTORE_PASSWORD"
+          export SARVA_KEY_ALIAS="$KEY_ALIAS"
+          export SARVA_KEY_PASSWORD="$KEY_PASSWORD"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/build.gradle')
+          s=p.read_text()
+          if "android {" not in s:
+              raise SystemExit("Unexpected Gradle config")
+          cfg="""android {
+          signingConfigs {
+            release {
+              storeFile file(System.getenv('SARVA_KEYSTORE_PATH'))
+              storePassword System.getenv('SARVA_KEYSTORE_PASSWORD')
+              keyAlias System.getenv('SARVA_KEY_ALIAS')
+              keyPassword System.getenv('SARVA_KEY_PASSWORD')
+            }
+          }
+          buildTypes {
+            release {
+              signingConfig signingConfigs.release
+              minifyEnabled false
+            }
+          }
+          """
+          p.write_text(s.replace("android {",cfg,1))
+          PY
+          gradle --no-daemon assembleRelease
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk
+          unzip -t app/build/outputs/apk/release/app-release.apk | tail -2
+          # Never expose or upload the keystore, password, or secret-bearing build directory.
+          rm -f "$RUNNER_TEMP/sarva-release.jks"
+
+      - name: Upload signed release APK only
+        uses: actions/upload-artifact@v4
+        with:
+          name: SARVA-CRM-Release-Signed-APK
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 7
