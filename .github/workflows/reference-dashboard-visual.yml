@@ -1,0 +1,91 @@
+name: Reference dashboard visual acceptance
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/reference-dashboard-visual.yml"
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate dashboard source syntax
+        run: |
+          node --check web-dashboard/dashboard.js
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          h=Path("web-dashboard/operations.html").read_text()
+          j=Path("web-dashboard/dashboard.js").read_text()
+          c=Path("web-dashboard/dashboard.css").read_text()
+          ids=set(re.findall(r'\bid="([^"]+)"',h))
+          used=set(re.findall(r"\$\('([^']+)'\)",j))
+          assert not (used-ids),(used-ids)
+          for k in ("trendChart","donutChart","statTotal","statKyc","insightRate","adminTab","staffTab","requestForm"):
+            assert k in ids,k
+          assert "drawTrend()" in j and "drawDonut(counts,rows.length)" in j
+          assert "crm_staff_profiles" in j and "sarva_admin_set_staff_active" in j
+          assert "service_role" not in j and "TWILIO_AUTH_TOKEN" not in j
+          assert "#8b1838" in j and "conic-gradient" in j
+          assert "@media(max-width:690px)" in c
+          print("PASS source: charts, reference styling, role controls, DOM IDs and JS syntax")
+          PY
+      - name: Check live site
+        run: |
+          set -euo pipefail
+          root=https://om-sarva-bhuta-crm-secure.vercel.app
+          for page in /operations.html /dashboard.js /dashboard.css /enroll.html /verify.html /review.html /legacy-kyc.html /logo.webp; do
+            status="$(curl -sSL -o /tmp/page -w '%{http_code}' "$root$page")"
+            [[ "$status" == 200 ]] || { echo "::error::$page $status";exit 1; }
+            [[ $(wc -c </tmp/page) -gt 100 ]] || exit 1
+            echo "PASS $page"
+          done
+          curl -fsSL "$root/operations.html" | grep -q 'Enrollment Trend'
+          curl -fsSL "$root/operations.html" | grep -q 'Application Status'
+          curl -fsSL "$root/operations.html" | grep -q 'Admin Login'
+          curl -fsSL "$root/operations.html" | grep -q 'Staff Login'
+          curl -fsSL "$root/" | grep -Fq 'EG59doEGYjRvYT75gprpTEAMIt1XtbYMND0pM0NvpfU'
+          echo 'PASS live production content and Google ownership'
+      - name: Verify responsive browser UI
+        run: |
+          npm install --no-save playwright-core@1.56.1
+          cat > ./verify-sarva-reference.mjs <<'JS'
+          import {chromium} from 'playwright-core';
+          import assert from 'node:assert/strict';
+          const b=await chromium.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+          try {
+            for(const width of [1440,390]){
+              const page=await b.newPage({viewport:{width,height:900}});
+              const errs=[];page.on('pageerror',e=>errs.push(e.message));
+              await page.goto('https://om-sarva-bhuta-crm-secure.vercel.app/operations.html',{waitUntil:'domcontentloaded'});
+              await page.locator('#adminTab').waitFor({state:'visible',timeout:20000});
+              assert.equal(await page.locator('#dashboardScreen').isVisible(),false);
+              assert.equal(await page.locator('#staffTab').isVisible(),true);
+              await page.locator('#staffTab').click();
+              assert.equal(await page.locator('#formTitle').textContent(),'Staff Sign In');
+              await page.locator('#requestToggle').click();
+              assert.equal(await page.locator('#requestForm').isVisible(),true);
+              await page.locator('#adminTab').click();
+              assert.equal(await page.locator('#requestForm').isVisible(),false);
+              assert.equal(await page.locator('#trendChart').count(),1);
+              assert.equal(await page.locator('#donutChart').count(),1);
+              await page.screenshot({path:'sarva-reference-'+width+'.png',fullPage:true});
+              assert.deepEqual(errs,[]);
+              console.log('PASS: '+width+'px responsive login flow, charts DOM and zero runtime exceptions');
+              await page.close();
+            }
+          } finally {await b.close()}
+          JS
+          node verify-sarva-reference.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: SARVA-reference-v1-4-visual-checks
+          path: sarva-reference-*.png
+          if-no-files-found: ignore
