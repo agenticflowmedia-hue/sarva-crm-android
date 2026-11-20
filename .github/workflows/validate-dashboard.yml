@@ -1,0 +1,39 @@
+name: Validate professional CRM dashboard
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "web-dashboard/**"
+      - ".github/workflows/validate-dashboard.yml"
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check dashboard JavaScript syntax and role guards
+        run: |
+          set -euo pipefail
+          node --check web-dashboard/dashboard.js
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html=Path("web-dashboard/operations.html").read_text()
+          css=Path("web-dashboard/dashboard.css").read_text()
+          js=Path("web-dashboard/dashboard.js").read_text()
+          ids=set(re.findall(r'\bid="([^"]+)"',html))
+          targets=set(re.findall(r"\$\('([^']+)'\)",js))
+          assert not (targets-ids), f"Missing HTML ids: {targets-ids}"
+          assert 'crm_staff_profiles' in js
+          assert "sarva_admin_staff_directory" in js
+          assert "sarva_admin_set_staff_active" in js
+          assert "UNVERIFIED" in js
+          assert "phone_verified_at" in js
+          assert "service_role" not in js and "TWILIO_AUTH_TOKEN" not in js
+          assert "@media(max-width:650px)" in css
+          assert "[hidden]{display:none!important}" in css
+          assert 'dashboard.js' in html and 'dashboard.css' in html
+          print(f"PASS: {len(ids)} markup ids, {len(targets)} script targets, role authorization and responsive styles")
+          PY
