@@ -55,6 +55,42 @@ async function checkAccess(expectedMode=null){const {data:{session},error}=await
  view('overview');
  return true
 }
+function drawTrend(){
+ const period=Number($('trendPeriod').value)||12;
+ const now=new Date();
+ const monthIndex=(d)=>d.getUTCFullYear()*12+d.getUTCMonth();
+ const base=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),1));
+ const current=monthIndex(base);
+ const counts=Array(period).fill(0);
+ for(const rec of rows){
+   if(!rec.created_at)continue;
+   const date=new Date(rec.created_at);
+   if(Number.isNaN(date.getTime()))continue;
+   const idx=period-1-(current-monthIndex(date));
+   if(idx>=0&&idx<period)counts[idx]++;
+ }
+ const max=Math.max(1,...counts);
+ setText('axisMax',max);setText('axisMid',Math.round(max/2));
+ const chart=$('trendChart');chart.replaceChildren();
+ const monthFmt=new Intl.DateTimeFormat('en-IN',{month:'short',timeZone:'UTC'});
+ for(let i=0;i<period;i++){
+   const month=new Date(Date.UTC(base.getUTCFullYear(),base.getUTCMonth()-(period-1-i),1));
+   const wrap=node('div','trend-item');const bars=node('div','trend-column');
+   const bar=node('div','trend-fill');bar.style.height=(Math.max(0,counts[i]/max)*100)+'%';
+   bar.title=monthFmt.format(month)+' '+month.getUTCFullYear()+': '+counts[i]+' enrollments';
+   bar.setAttribute('aria-label',bar.title);bars.append(bar);
+   wrap.append(bars,node('span','trend-month',monthFmt.format(month)));chart.append(wrap);
+ }
+}
+function drawDonut(counts,total){
+ const approved=counts.approved||0,pending=counts.pending||0,rejected=counts.rejected||0;
+ const denominator=total||1;const ap=approved/denominator*100,pe=pending/denominator*100;
+ $('donutChart').style.background=total?'conic-gradient(#8b1838 0% '+ap+'%, #e8af48 '+ap+'% '+(ap+pe)+'%, #f15e66 '+(ap+pe)+'% 100%)':'conic-gradient(#e9e9ed 0% 100%)';
+ $('donutChart').setAttribute('aria-label','Approved '+approved+', pending '+pending+', rejected '+rejected+', total '+total);
+ setText('donutTotal',total);setText('legendApproved',approved+' · '+(total?Math.round(ap):0)+'%');
+ setText('legendPending',pending+' · '+(total?Math.round(pe):0)+'%');
+ setText('legendRejected',rejected+' · '+(total?Math.round(rejected/denominator*100):0)+'%');
+}
 async function loadRecords(){
  if(!profile||loading)return;
  loading=true;
@@ -67,14 +103,19 @@ async function loadRecords(){
  rows=customers.data||[];
  const counts={pending:0,approved:0,rejected:0};for(const e of rows){if(e.status in counts)counts[e.status]++}
  setText('statTotal',rows.length);setText('statPending',counts.pending);setText('statApproved',counts.approved);setText('statRejected',counts.rejected);
- const total=Math.max(rows.length,1);
- for(const k of Object.keys(counts)){const pct=100*counts[k]/total;setText('pipe'+k[0].toUpperCase()+k.slice(1),counts[k]+' · '+(rows.length?Math.round(pct):0)+'%');$('bar'+k[0].toUpperCase()+k.slice(1)).style.width=pct+'%'}
- setText('kycCount',docs.error?'Unavailable':docs.count??0);
- setText('syncLabel','Last refreshed: '+new Intl.DateTimeFormat('en-IN',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kolkata'}).format(new Date())+' IST');
+ const docCount=docs.error?null:docs.count??0;
+ setText('statKyc',docCount===null?'—':docCount);
+ setText('insightKyc',docCount===null?'—':docCount);
+ setText('insightPending',counts.pending);
+ setText('insightRate',rows.length?Math.round((counts.approved/rows.length)*100)+'%':'0%');
+ setText('insightPhone','Disabled');
+ drawTrend();drawDonut(counts,rows.length);
+ setText('syncLabel','Last refreshed: '+new Intl.DateTimeFormat('en-IN',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kolkata'}).format(new Date())+' IST · Based on up to 200 accessible records');
  const recent=$('recentBody');recent.replaceChildren();for(const r of rows.slice(0,5))recent.append(rowView(r));
  if(!rows.length){const empty=node('tr');const td=node('td','empty','No enrollments yet. Use New Enrollment to register your first customer.');td.colSpan=4;empty.append(td);recent.append(empty)}
  paintCustomerRecords();
 }
+
 function paintCustomerRecords(){const search=$('searchRecords').value.toLowerCase().trim(),status=$('statusFilter').value;
  const shown=rows.filter(r=>(status==='all'||r.status===status)&&(!search||[r.reference,r.full_name,r.city].some(v=>safeText(v).toLowerCase().includes(search))));
  const body=$('customerBody');body.replaceChildren();for(const r of shown)body.append(rowView(r,true));
@@ -110,6 +151,8 @@ function initialize(){
  $('viewCustomersQuick').addEventListener('click',()=>view('customers'));$('showAllCustomers').addEventListener('click',()=>view('customers'));
  $('searchRecords').addEventListener('input',paintCustomerRecords);$('statusFilter').addEventListener('change',paintCustomerRecords);
  for(const id of ['refreshOverview','refreshCustomers'])$(id).addEventListener('click',loadRecords);
+ $('trendPeriod').addEventListener('change',drawTrend);
+ $('globalSearch').addEventListener('input',e=>{$('searchRecords').value=e.target.value;if(e.target.value.trim()&&profile)view('customers');else if(activeView==='customers')paintCustomerRecords()});
  $('refreshTeam').addEventListener('click',loadStaff);
  checkAccess().catch(e=>{showAuth();showToast(e.message,true)});
 }
