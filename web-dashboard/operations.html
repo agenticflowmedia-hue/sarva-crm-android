@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#802b40"><meta name="robots" content="noindex,nofollow"><title>OM SARVA BHUTA · Professional CRM Dashboard</title><link rel="icon" href="/icon-192.png"><link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/dashboard.css"></head>
+<body><div id="app">
+<aside class="sidebar" id="sidebar" aria-label="Main navigation">
+  <div class="brand"><img class="brand-logo" src="/logo.webp" alt="OM SARVA BHUTA company emblem"><div><b>OM SARVA BHUTA</b><span>Secure CRM Platform</span></div></div>
+  <div id="sideNavigation" hidden>
+  <div class="side-caption">WORKSPACE</div>
+  <button class="nav-link active" data-view="overview"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Overview</button>
+  <button class="nav-link" data-view="customers"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Customer Directory</button>
+  <a class="nav-link" href="/enroll.html"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/><circle cx="12" cy="12" r="10"/></svg>New Enrollment</a>
+  <div id="reviewerNav" hidden><div class="side-caption" style="padding-top:24px">COMPLIANCE</div>
+  <a class="nav-link" href="/verify.html"><svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><path d="M12 22c5-2 8-6 8-11V5l-8-3-8 3v6c0 5 3 9 8 11z"/></svg>KYC Verification</a>
+  <a class="nav-link" href="/review.html"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 12h8M8 17h4"/></svg>Review & Approval</a></div>
+  <div id="adminNav" hidden><div class="side-caption" style="padding-top:23px">ADMINISTRATION</div>
+  <button class="nav-link" data-view="team"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 11a4 4 0 1 0-2-7.5M18 16v5M15.5 18.5h5"/></svg>Staff Management</button>
+  <a class="nav-link" href="/legacy-kyc.html"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 8h6M9 13h6M9 18h3"/></svg>Historical KYC</a></div>
+  </div>
+  <div class="side-spacer"></div><div class="side-footer"><div class="online"><span class="online-dot"></span> Secure workspace</div><p>Staff-authenticated access. SMS verification disabled in this MVP.</p></div><div class="side-legal">OM SARVA BHUTA · Client Operations</div>
+</aside>
+<div id="mobileOverlay" class="mobile-overlay"></div>
+<div class="content"><header class="topbar">
+ <div style="display:flex;gap:13px;align-items:center"><button class="mobile-toggle" id="menuToggle" aria-label="Open menu" aria-expanded="false">☰</button><div class="breadcrumb">Workspace <span class="slash">/</span> <strong id="crumb">Sign in</strong></div></div>
+ <div class="top-right"><span class="header-date" id="todayLabel"></span><span class="header-divider"></span><div class="account"><div class="avatar" id="avatar">OS</div><div><strong id="accountName">Guest Access</strong><small id="accountRole">Sign in to continue</small></div></div></div>
+</header><main class="page-wrap">
+<div id="toast" role="status" aria-live="polite" hidden></div>
+<section id="authScreen">
+  <div class="auth-heading"><div class="eyebrow">Secure Operations Portal</div><h1>Welcome to SARVA CRM</h1><p>Manage enrollment, verification and operations with role-based access.</p></div>
+  <div class="auth-switch"><button type="button" class="active" id="adminTab"><strong>Admin Login</strong><small>Management & approvals</small></button><button type="button" id="staffTab"><strong>Staff Login</strong><small>Enrollment & KYC intake</small></button></div>
+  <div class="panel auth-form"><div class="eyebrow">Account Access</div><h2 id="formTitle">Administrator Sign In</h2><p id="formHint">Restricted to active administrator accounts.</p>
+   <form id="loginForm"><div class="field"><label for="email">Official email address</label><input id="email" type="email" required autocomplete="username" placeholder="you@company.com"></div><div class="field"><label for="password">Password</label><input id="password" type="password" required autocomplete="current-password" placeholder="Enter your secure password"></div><button class="btn primary" type="submit" id="signInBtn">Sign In Securely →</button></form>
+   <div id="staffRequestWrap" hidden><button class="request-trigger" id="requestToggle" type="button">New staff? Request access</button>
+   <form id="requestForm" class="auth-request" hidden><div class="field"><label for="requestEmail">Staff email</label><input id="requestEmail" type="email" autocomplete="email" required></div><div class="field"><label for="requestPassword">Create password</label><input id="requestPassword" type="password" minlength="12" autocomplete="new-password" required></div><p style="font-size:11px;color:#8b8b93">New staff accounts are inactive until an administrator approves access. Verify your email if prompted.</p><button class="btn primary" id="requestBtn">Request Staff Access →</button></form></div>
+  </div><div class="auth-footer">Zero-SMS-cost MVP · Customer phones remain unverified · All access is controlled by Supabase policies.</div>
+</section>
+<div id="dashboardScreen" hidden>
+<section id="overviewView">
+ <div class="page-head"><div><div class="eyebrow">OPERATIONAL INTELLIGENCE</div><h1 id="greeting">Good day, welcome back</h1><p id="subtitle">Overview of the customer and compliance workflow.</p></div><div class="actions"><button type="button" class="btn" id="refreshOverview">↻ &nbsp;Refresh</button><a class="btn primary" href="/enroll.html">＋ New Enrollment</a></div></div>
+ <div class="hero"><div><div class="overline">OM SARVA BHUTA · DIGITAL OPERATIONS</div><h2>Your business, organized in one secure workspace.</h2><p>Customer enrollments, manual KYC compliance and staff permissions — coordinated with a single dashboard.</p><div class="hero-note">● &nbsp; Zero SMS Cost · Phone Numbers Unverified</div></div><div class="hero-mark"><img src="/logo.webp" alt="" aria-hidden="true"></div></div>
+ <div class="metrics">
+  <div class="metric"><div class="metric-icon">▣</div><div class="metric-label">Accessible Enrollments</div><strong id="statTotal">—</strong><div class="metric-sub">Within your authorized scope</div></div>
+  <div class="metric pending"><div class="metric-icon">◷</div><div class="metric-label">Pending Review</div><strong id="statPending">—</strong><div class="metric-sub">Awaiting KYC / decision</div></div>
+  <div class="metric approved"><div class="metric-icon">✓</div><div class="metric-label">Approved</div><strong id="statApproved">—</strong><div class="metric-sub">Approved applications</div></div>
+  <div class="metric rejected"><div class="metric-icon">↳</div><div class="metric-label">Rejected</div><strong id="statRejected">—</strong><div class="metric-sub">Application decisions</div></div>
+ </div>
+ <div class="dashboard-grid">
+  <section class="panel"><div class="panel-heading"><div><h3>Application Pipeline</h3><p>Live counts across your accessible enrollments</p></div><div class="pill">Live data</div></div><div class="progress-row"><div class="progress-top"><strong>Pending</strong><span id="pipePending">—</span></div><div class="track"><div class="bar pending" id="barPending"></div></div></div><div class="progress-row"><div class="progress-top"><strong>Approved</strong><span id="pipeApproved">—</span></div><div class="track"><div class="bar approved" id="barApproved"></div></div></div><div class="progress-row"><div class="progress-top"><strong>Rejected</strong><span id="pipeRejected">—</span></div><div class="track"><div class="bar rejected" id="barRejected"></div></div></div><div class="notice secondary" style="margin-top:16px"><span>ⓘ</span><div><strong>Role-based visibility</strong>Your numbers reflect the customer records you are authorized to view, not an invented organization-wide total.</div></div></section>
+  <section class="panel"><div class="panel-heading"><div><h3>Quick Actions</h3><p>Go directly to important workflows</p></div></div><div class="quick-actions"><a class="quick-link" href="/enroll.html"><span>New enrollment<br><small>Register customer</small></span><b>↗</b></a><a class="quick-link" href="/enroll.html"><span>KYC upload<br><small>Private documents</small></span><b>↗</b></a><a class="quick-link reviewer-only" href="/verify.html" hidden><span>KYC verification<br><small>Reviewer access</small></span><b>↗</b></a><a class="quick-link reviewer-only" href="/review.html" hidden><span>Approval queue<br><small>Decision workflow</small></span><b>↗</b></a><a class="quick-link admin-only" href="/legacy-kyc.html" hidden><span>Historical KYC<br><small>Admin only</small></span><b>↗</b></a><button class="quick-link" type="button" id="viewCustomersQuick"><span>All customers<br><small>Search directory</small></span><b>↗</b></button></div></section>
+ </div>
+ <div class="dashboard-grid" style="grid-template-columns:1.55fr 1fr">
+  <section class="panel"><div class="panel-heading"><div><h3>Recent Enrollments</h3><p>Most recently created accessible records</p></div><button class="btn small" type="button" id="showAllCustomers">View directory →</button></div><div class="table-wrap"><table><thead><tr><th>Reference</th><th>Customer</th><th>Status</th><th>Phone</th></tr></thead><tbody id="recentBody"></tbody></table></div></section>
+  <section class="panel"><div class="panel-heading"><div><h3>Compliance Snapshot</h3><p>Document verification is separate from phone verification</p></div></div><div style="display:flex;justify-content:space-between;align-items:center;margin:12px 0 22px"><span class="muted" style="font-size:12px">Accessible KYC documents</span><strong id="kycCount" style="font:800 23px Manrope">—</strong></div><div class="notice"><span>⚠</span><div><strong>Mobile OTP disabled</strong>Phone numbers are displayed as UNVERIFIED unless verified by a real server-side provider. KYC approval does not prove phone ownership.</div></div><div style="margin-top:13px" class="notice secondary"><span>ⓘ</span><div><strong>Customer consent required</strong>Only upload documents provided with valid customer authorization.</div></div></section>
+ </div><p id="syncLabel" style="font-size:10px;color:#999aa4;text-align:right"></p>
+</section>
+<section id="customersView" hidden>
+ <div class="page-head"><div><div class="eyebrow">CUSTOMER OPERATIONS</div><h1>Customer Directory</h1><p>Search enrollment records authorized for your account.</p></div><div class="actions"><button class="btn" id="refreshCustomers" type="button">↻ Refresh</button><a class="btn primary" href="/enroll.html">＋ New Enrollment</a></div></div>
+ <div class="panel"><div class="panel-heading"><div><h3>Enrollment Records</h3><p>Customer phone numbers are masked for privacy.</p></div><div class="pill" id="dirCount">— records</div></div>
+ <div class="search-row"><input class="search-control" id="searchRecords" type="search" placeholder="Search by reference, customer or city…" aria-label="Search loaded customer records"><select class="select-control" id="statusFilter" aria-label="Filter by status"><option value="all">All statuses</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></div>
+ <div class="table-wrap"><table><thead><tr><th>Reference</th><th>Customer</th><th>City</th><th>Created</th><th>Application</th><th>Phone status</th></tr></thead><tbody id="customerBody"></tbody></table></div><div class="records-foot" id="recordsFoot">Showing up to 200 of your most recent accessible enrollments. Search applies to loaded records.</div>
+ </div>
+</section>
+<section id="teamView" hidden>
+ <div class="page-head"><div><div class="eyebrow">ACCESS GOVERNANCE</div><h1>Staff Management</h1><p>Approve, monitor and deactivate staff accounts without granting admin privileges.</p></div><button class="btn" id="refreshTeam" type="button">↻ Refresh Team</button></div>
+ <div class="panel"><div class="panel-heading"><div><h3>Staff Access Requests</h3><p>New staff are inactive by default and must be approved by an administrator.</p></div><div class="pill">Admin only</div></div><div id="teamList" aria-live="polite"><div class="empty">Loading team members…</div></div></div>
+ <div class="notice" style="margin-top:18px"><span>ⓘ</span><div><strong>Access security</strong>Staff accounts can enroll customers and upload permitted KYC files. Staff management, KYC review and approval require corresponding server-side permissions. Admin passwords must never be shared.</div></div>
+</section>
+<div style="margin-top:24px;text-align:right"><button class="btn danger" id="signOutButton" type="button">Sign out securely</button></div>
+</div>
+</main></div></div><script type="module" src="/dashboard.js"></script></body></html>
