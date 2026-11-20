@@ -5,11 +5,13 @@ on:
     branches: [main]
     paths: [.github/workflows/prepare-google-verification.yml]
 permissions:
-  contents: read
+  contents: write
 jobs:
   prepare:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
       - name: Download active production homepage
         run: |
           curl --fail --location --retry 3 --max-time 30 --silent --show-error 'https://om-sarva-bhuta-crm-secure.vercel.app/' -o index.html
@@ -33,3 +35,11 @@ jobs:
           name: sarva-verification-index
           path: index.html
           if-no-files-found: error
+      - name: Save verified home page source for deployment
+        run: |
+          mkdir -p verification
+          cp index.html verification/index.html
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add verification/index.html
+          git diff --cached --quiet || (git commit -m 'Store original SARVA homepage with Google verification meta tag' && git push)
