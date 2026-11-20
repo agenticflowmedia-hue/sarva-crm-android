@@ -14,7 +14,7 @@ on:
       - "gradle.properties"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-apk:
@@ -40,12 +40,12 @@ jobs:
           p=Path('app/build.gradle')
           s=p.read_text()
           if "versionCode 1; versionName '1.0'" not in s: raise SystemExit("Unexpected app version")
-          p.write_text(s.replace("versionCode 1; versionName '1.0'","versionCode 3; versionName '1.2'"))
+          p.write_text(s.replace("versionCode 1; versionName '1.0'","versionCode 4; versionName '1.4'"))
           java=Path('app/src/main/java/in/omsarvabhuta/crm/MainActivity.java').read_text()
           assert 'https://om-sarva-bhuta-crm-secure.vercel.app/operations.html' in java
           assert 'HOST.equalsIgnoreCase(dest.getHost())' in java
           assert 'setSafeBrowsingEnabled(true)' in java
-          print("Professional Android 1.2 with Admin & Staff Login ready for compilation")
+          print("Android v1.4 with live executive CRM dashboard ready for compilation")
           PY
 
       - name: Configure Java 17
@@ -75,6 +75,51 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: SARVA-CRM-Android-Professional-v1-2-APK
+          name: SARVA-CRM-Android-Professional-v1-4-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      - name: Prepare direct-install Android package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk dist/OM_SARVA_BHUTA_CRM_v1.4_Android.apk
+          (cd dist && sha256sum OM_SARVA_BHUTA_CRM_v1.4_Android.apk > SHA256SUMS.txt)
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs dist/OM_SARVA_BHUTA_CRM_v1.4_Android.apk
+          ls -lh dist/
+
+      - name: Publish public direct-download APK for client acceptance
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="v1.4.0-client-test"
+          TITLE="OM SARVA BHUTA CRM v1.4 - Android Direct Install (Client Testing)"
+          cat > release-notes.md <<'RELEASE_NOTES'
+          ## OM SARVA BHUTA Secure CRM — Android v1.4
+          - Live professional dashboard with original brand logo
+          - Separate Admin and Staff sign-in
+          - Customer enrollment, private KYC upload and admin review
+          - Monthly charts and status analytics use real authorized CRM records
+          - SMS OTP disabled; mobile numbers remain UNVERIFIED
+
+          **Distribution:** Public, directly downloadable, debug-signed APK for controlled client acceptance testing only. This is NOT a Play Store or production release-signed build. Android may require allowing installation from this source. To upgrade previous versions with a different debug signature, uninstall the older app first. Customer records reside on the secure server and are not deleted by uninstalling the app.
+
+          Do not upload confidential KYC documents solely to test the APK. Use authorized client accounts and real customer consent for operational uploads.
+
+          SHA256 is supplied alongside the APK.
+          RELEASE_NOTES
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/OM_SARVA_BHUTA_CRM_v1.4_Android.apk dist/SHA256SUMS.txt --clobber
+          else
+            gh release create "$TAG" dist/OM_SARVA_BHUTA_CRM_v1.4_Android.apk dist/SHA256SUMS.txt \
+              --target "$GITHUB_SHA" \
+              --title "$TITLE" \
+              --notes-file release-notes.md \
+              --prerelease
+          fi
+          echo "Direct link: https://github.com/${GH_REPO}/releases/download/${TAG}/OM_SARVA_BHUTA_CRM_v1.4_Android.apk"
