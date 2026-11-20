@@ -40,12 +40,12 @@ jobs:
           p=Path('app/build.gradle')
           s=p.read_text()
           if "versionCode 1; versionName '1.0'" not in s: raise SystemExit("Unexpected app version")
-          p.write_text(s.replace("versionCode 1; versionName '1.0'","versionCode 2; versionName '1.1'"))
+          p.write_text(s.replace("versionCode 1; versionName '1.0'","versionCode 3; versionName '1.2'"))
           java=Path('app/src/main/java/in/omsarvabhuta/crm/MainActivity.java').read_text()
           assert 'https://om-sarva-bhuta-crm-secure.vercel.app/operations.html' in java
           assert 'HOST.equalsIgnoreCase(dest.getHost())' in java
           assert 'setSafeBrowsingEnabled(true)' in java
-          print("Professional Android 1.1 ready for compilation")
+          print("Professional Android 1.2 with Admin & Staff Login ready for compilation")
           PY
 
       - name: Configure Java 17
@@ -75,6 +75,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: SARVA-CRM-Android-Professional-v1-1-APK
+          name: SARVA-CRM-Android-Professional-v1-2-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
